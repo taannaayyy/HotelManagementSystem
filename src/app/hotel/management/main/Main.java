@@ -1,7 +1,10 @@
 package app.hotel.management.main;
 
-public class Main {
+import app.hotel.management.View.UserLoginMenu;
+
+public class Main{
+
     public static void main (String[] args){
-        System.out.println("Hello World");
+        new UserLoginMenu();
     }
 }

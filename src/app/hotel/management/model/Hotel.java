@@ -6,6 +6,7 @@ public class  Hotel{
     private int hotelId;
     private String hotelName;
     private String hotelAddress;
+    private Room[] rooms;
 
     // Constructors
     public Hotel(){
