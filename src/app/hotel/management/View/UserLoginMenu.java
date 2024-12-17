@@ -27,13 +27,18 @@ public class UserLoginMenu extends JFrame {
         usernameField = new JTextField();
         passwordField = new JPasswordField();
         JButton loginButton = new JButton("Login");
+        JButton exitButton = new JButton("Exit");
 
         // Set bounds
         usernameLabel.setBounds(50, 50, 100, 30);
         usernameField.setBounds(150, 50, 200, 30);
         passwordLabel.setBounds(50, 100, 100, 30);
         passwordField.setBounds(150, 100, 200, 30);
-        loginButton.setBounds(150, 150, 100, 30);
+        loginButton.setBounds(130, 150, 100, 30); // Login button's bounds
+        exitButton.setBounds(240, 150, 100, 30);  // Exit button placed to the right of Login button
+
+        // Add action listener for Exit button
+        exitButton.addActionListener(e -> System.exit(0));
 
         // Add components to frame
         add(usernameLabel);
@@ -41,6 +46,7 @@ public class UserLoginMenu extends JFrame {
         add(passwordLabel);
         add(passwordField);
         add(loginButton);
+        add(exitButton);
 
         // Add action listener to login button
         loginButton.addActionListener(new LoginActionListener());
