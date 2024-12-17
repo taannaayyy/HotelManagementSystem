@@ -73,13 +73,13 @@ public class UserLoginMenu extends JFrame {
                     case "guest":
                         new GuestMenu(hotelName, userID);
                         break;
-                    case "admin":
+                    case "administrator":
                         new AdminMenu(hotelName);
                         break;
                     case "receptionist":
                         new ReceptionistMenu(hotelName);
                         break;
-                    case "housekeeping":
+                    case "housekeeper":
                         new HousekeepingMenu(hotelName);
                         break;
                     default:
@@ -120,7 +120,7 @@ public class UserLoginMenu extends JFrame {
         try {
             String url = "jdbc:mysql://localhost:3306/hotel_management";
             String user = "root";
-            String password = "Tny_0102032003";
+            String password = "password";
             return DriverManager.getConnection(url, user, password);
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Database Connection Failed: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
