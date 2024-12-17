@@ -14,10 +14,7 @@ public class UserLoginMenu extends JFrame {
     public UserLoginMenu() {
         setTitle("Hotel Management System - User Login");
         setSize(400, 300);
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        int x = (screenSize.width - getWidth()) / 2;
-        int y = (screenSize.height - getHeight()) / 2;
-        setLocation(x, y);
+        setLocationRelativeTo(null); // Center the frame
         setResizable(false);
         setLayout(null);
 
@@ -29,18 +26,16 @@ public class UserLoginMenu extends JFrame {
         JButton loginButton = new JButton("Login");
         JButton exitButton = new JButton("Exit");
 
-        // Set bounds
-        usernameLabel.setBounds(50, 50, 100, 30);
-        usernameField.setBounds(150, 50, 200, 30);
-        passwordLabel.setBounds(50, 100, 100, 30);
-        passwordField.setBounds(150, 100, 200, 30);
-        loginButton.setBounds(130, 150, 100, 30); // Login button's bounds
-        exitButton.setBounds(240, 150, 100, 30);  // Exit button placed to the right of Login button
+        // Set bounds for components
+        int xStart = 50, yStart = 50, labelWidth = 100, fieldWidth = 200, height = 30;
+        usernameLabel.setBounds(xStart, yStart, labelWidth, height);
+        usernameField.setBounds(xStart + 100, yStart, fieldWidth, height);
+        passwordLabel.setBounds(xStart, yStart + 50, labelWidth, height);
+        passwordField.setBounds(xStart + 100, yStart + 50, fieldWidth, height);
+        loginButton.setBounds(120, 150, 100, height);  // Login button
+        exitButton.setBounds(230, 150, 100, height);   // Exit button
 
-        // Add action listener for Exit button
-        exitButton.addActionListener(e -> System.exit(0));
-
-        // Add components to frame
+        // Add components to the frame
         add(usernameLabel);
         add(usernameField);
         add(passwordLabel);
@@ -48,76 +43,84 @@ public class UserLoginMenu extends JFrame {
         add(loginButton);
         add(exitButton);
 
-        // Add action listener to login button
+        // Add action listeners
         loginButton.addActionListener(new LoginActionListener());
+        exitButton.addActionListener(e -> System.exit(0));
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setVisible(true);
     }
 
-    // ActionListener for the Login button
     private class LoginActionListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             String username = usernameField.getText();
             String password = new String(passwordField.getPassword());
 
-            String role = authenticateUser(username, password);
-            if (role != null) {
-                openUserMenu(role);
+            // Authenticate user and retrieve role and hotel information
+            String[] authResult = authenticateUser(username, password);
+            if (authResult != null) {
+                String role = authResult[0];
+                String hotelName = authResult[1];
+                int userID = Integer.parseInt(authResult[2]);
+
+                // Display a welcoming message
+                JOptionPane.showMessageDialog(UserLoginMenu.this,
+                        "Welcome, " + role + "! You are logged in to " + hotelName + ".",
+                        "Welcome", JOptionPane.INFORMATION_MESSAGE);
+
+                switch (role.toLowerCase()) {
+                    case "guest":
+                        new GuestMenu(hotelName, userID);
+                        break;
+                    case "admin":
+                        new AdminMenu(hotelName);
+                        break;
+                    case "receptionist":
+                        new ReceptionistMenu(hotelName);
+                        break;
+                    case "housekeeping":
+                        new HousekeepingMenu(hotelName);
+                        break;
+                    default:
+                        JOptionPane.showMessageDialog(UserLoginMenu.this, "Invalid role!", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+                dispose(); // Close login window
             } else {
                 JOptionPane.showMessageDialog(UserLoginMenu.this, "Invalid username or password!", "Login Failed", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
-    // Authenticate user and fetch role from the database
-    private String authenticateUser(String username, String password) {
-        String role = null;
+    private String[] authenticateUser(String username, String password) {
         try (Connection conn = connectToDatabase()) {
+            String query = "SELECT ua.Role, h.Hotel_Name, ua.User_ID " +
+                    "FROM user_account ua " +
+                    "JOIN Hotel h ON ua.Hotel_ID = h.Hotel_ID " +
+                    "WHERE ua.Username = ? AND ua.Password_Hash = ?";
             assert conn != null;
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT role FROM users WHERE username = ? AND password = ?")) {
-                stmt.setString(1, username);
-                stmt.setString(2, password);
-                ResultSet rs = stmt.executeQuery();
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, username);
+            stmt.setString(2, password);
+            ResultSet rs = stmt.executeQuery();
 
-                if (rs.next()) {
-                    role = rs.getString("role");
-                }
+            if (rs.next()) {
+                String role = rs.getString("Role");
+                String hotelName = rs.getString("Hotel_Name");
+                String userID = String.valueOf(rs.getInt("User_ID")); // Fetch user ID for guests
+                return new String[]{role, hotelName, userID};
             }
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Database Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
-        return role;
+        return null;
     }
 
-    // Open the respective user menu based on the role
-    private void openUserMenu(String role) {
-        switch (role) {
-            case "guest":
-                new GuestMenu();
-                break;
-            case "admin":
-                new AdminMenu();
-                break;
-            case "receptionist":
-                new ReceptionistMenu();
-                break;
-            case "housekeeping":
-                new HousekeepingMenu();
-                break;
-            default:
-                JOptionPane.showMessageDialog(this, "Invalid role!", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-        dispose(); // Close the login window
-    }
-
-    // Database connection method
     private Connection connectToDatabase() {
         try {
             String url = "jdbc:mysql://localhost:3306/hotel_management";
             String user = "root";
-            String password = "password";
+            String password = "Tny_0102032003";
             return DriverManager.getConnection(url, user, password);
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Database Connection Failed: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

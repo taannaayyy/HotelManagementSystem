@@ -6,6 +6,5 @@ public class Main{
 
     public static void main (String[] args){
         new UserLoginMenu();
-        System.out.println("Hello Kemal");
     }
 }
