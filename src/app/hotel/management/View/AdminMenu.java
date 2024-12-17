@@ -314,7 +314,34 @@ class AdminMenu extends JFrame {
     }
 
     private void generateRevenueReport() {
-        // Implementation: Summarize revenue by calculating totals from reservations.
+        try {
+            // Query to calculate total revenue for 'Completed' reservations only
+            PreparedStatement stmt = connection.prepareStatement(
+                    "SELECT SUM(rm.Room_Price) AS Total_Revenue " +
+                            "FROM reservation r " +
+                            "JOIN room rm ON r.Room_ID = rm.Room_ID " +
+                            "WHERE rm.Hotel_ID = ? AND r.Booking_Status = 'Completed'");
+            stmt.setInt(1, hotelID);
+
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                double totalRevenue = rs.getDouble("Total_Revenue");
+
+                if (rs.wasNull()) { // Handle no revenue case
+                    JOptionPane.showMessageDialog(this, "No completed reservations found for this hotel.",
+                            "Revenue Report", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    // Display the total revenue for completed reservations
+                    JOptionPane.showMessageDialog(this,
+                            "Total Revenue for Completed Rooms: $" + String.format("%.2f", totalRevenue),
+                            "Revenue Report", JOptionPane.INFORMATION_MESSAGE);
+                }
+            }
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Error generating revenue report: " + ex.getMessage(),
+                    "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void viewBookingRecords() {
@@ -375,7 +402,53 @@ class AdminMenu extends JFrame {
     }
 
     private void viewMostBookedRoomTypes() {
-        // Implementation: Aggregate bookings to show the most popular room types.
+        try {
+            // Query to count bookings for each room type in the current hotel
+            PreparedStatement stmt = connection.prepareStatement(
+                    "SELECT rm.Room_Type, COUNT(r.Reservation_ID) AS Booking_Count " +
+                            "FROM reservation r " +
+                            "JOIN room rm ON r.Room_ID = rm.Room_ID " +
+                            "WHERE rm.Hotel_ID = ? AND r.Booking_Status = 'Booked' " +
+                            "GROUP BY rm.Room_Type " +
+                            "ORDER BY Booking_Count DESC");
+            stmt.setInt(1, hotelID);
+            ResultSet rs = stmt.executeQuery();
+
+            // Define table column names
+            String[] columnNames = {"Room Type", "Number of Bookings"};
+
+            // Build data for the table
+            java.util.List<Object[]> dataList = new java.util.ArrayList<>();
+            while (rs.next()) {
+                String roomType = rs.getString("Room_Type");
+                int bookingCount = rs.getInt("Booking_Count");
+                dataList.add(new Object[]{roomType, bookingCount});
+            }
+
+            // Handle no bookings found
+            if (dataList.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "No booking data available for this hotel.", "No Data", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
+            // Convert list to 2D array for JTable
+            Object[][] data = new Object[dataList.size()][2];
+            for (int i = 0; i < dataList.size(); i++) {
+                data[i] = dataList.get(i);
+            }
+
+            // Create JTable and display it in a scrollable pane
+            JTable table = new JTable(data, columnNames);
+            table.setEnabled(false); // Disable table editing
+            JScrollPane scrollPane = new JScrollPane(table);
+
+            // Show the table in a dialog
+            JOptionPane.showMessageDialog(this, scrollPane, "Most Booked Room Types", JOptionPane.PLAIN_MESSAGE);
+
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Error fetching most booked room types: " + ex.getMessage(),
+                    "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void viewEmployeesWithRoles() {
