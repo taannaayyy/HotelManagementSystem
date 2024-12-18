@@ -1,7 +1,6 @@
 package app.hotel.management.View;
 
 import javax.swing.*;
-import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.*;
@@ -57,18 +56,26 @@ public class UserLoginMenu extends JFrame {
             String username = usernameField.getText();
             String password = new String(passwordField.getPassword());
 
-            // Authenticate user and retrieve role and hotel information
+            // Authenticate user and retrieve role, hotel information, and optionally guest name
             String[] authResult = authenticateUser(username, password);
             if (authResult != null) {
                 String role = authResult[0];
                 String hotelName = authResult[1];
                 int userID = Integer.parseInt(authResult[2]);
+                String guestName = authResult.length > 3 ? authResult[3] : null;
 
-                // Display a welcoming message
-                JOptionPane.showMessageDialog(UserLoginMenu.this,
-                        "Welcome, " + role + "! You are logged in to " + hotelName + ".",
-                        "Welcome", JOptionPane.INFORMATION_MESSAGE);
+                // Personalized welcome message for guests
+                if ("guest".equalsIgnoreCase(role) && guestName != null) {
+                    JOptionPane.showMessageDialog(UserLoginMenu.this,
+                            "Welcome, " + guestName + "! You are logged in as a Guest at " + hotelName + ".",
+                            "Welcome", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(UserLoginMenu.this,
+                            "Welcome, " + role + "! You are logged in to " + hotelName + ".",
+                            "Welcome", JOptionPane.INFORMATION_MESSAGE);
+                }
 
+                // Open the corresponding menu based on the role
                 switch (role.toLowerCase()) {
                     case "guest":
                         new GuestMenu(hotelName, userID);
@@ -94,6 +101,7 @@ public class UserLoginMenu extends JFrame {
 
     private String[] authenticateUser(String username, String password) {
         try (Connection conn = connectToDatabase()) {
+            // Step 1: Authenticate user and fetch role, hotel name, and user ID
             String query = "SELECT ua.Role, h.Hotel_Name, ua.User_ID " +
                     "FROM user_account ua " +
                     "JOIN Hotel h ON ua.Hotel_ID = h.Hotel_ID " +
@@ -107,8 +115,20 @@ public class UserLoginMenu extends JFrame {
             if (rs.next()) {
                 String role = rs.getString("Role");
                 String hotelName = rs.getString("Hotel_Name");
-                String userID = String.valueOf(rs.getInt("User_ID")); // Fetch user ID for guests
-                return new String[]{role, hotelName, userID};
+                int userID = rs.getInt("User_ID");
+
+                String guestName = null;
+                // Step 2: Fetch guest name if the role is "Guest"
+                if (role.equalsIgnoreCase("Guest")) {
+                    String guestQuery = "SELECT Guest_Name FROM guest WHERE User_ID = ?";
+                    PreparedStatement guestStmt = conn.prepareStatement(guestQuery);
+                    guestStmt.setInt(1, userID);
+                    ResultSet guestRS = guestStmt.executeQuery();
+                    if (guestRS.next()) {
+                        guestName = guestRS.getString("Guest_Name");
+                    }
+                }
+                return new String[]{role, hotelName, String.valueOf(userID), guestName};
             }
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Database Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -120,7 +140,7 @@ public class UserLoginMenu extends JFrame {
         try {
             String url = "jdbc:mysql://localhost:3306/hotel_management";
             String user = "root";
-            String password = "password";
+            String password = "Tny_0102032003";
             return DriverManager.getConnection(url, user, password);
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Database Connection Failed: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

@@ -64,7 +64,7 @@ class HousekeepingMenu extends JFrame {
         try {
             String url = "jdbc:mysql://localhost:3306/hotel_management";
             String user = "root";
-            String password = "password"; // Replace with your credentials
+            String password = "Tny_0102032003"; // Replace with your credentials
             connection = DriverManager.getConnection(url, user, password);
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Database Connection Failed: " + ex.getMessage(),

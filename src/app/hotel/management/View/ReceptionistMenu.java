@@ -56,7 +56,7 @@ class ReceptionistMenu extends JFrame {
         try {
             String url = "jdbc:mysql://localhost:3306/hotel_management";
             String user = "root";
-            String password = "password"; // Replace with real credentials
+            String password = "Tny_0102032003";
             connection = DriverManager.getConnection(url, user, password);
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Database Connection Failed: " + ex.getMessage(),

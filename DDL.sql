@@ -3,14 +3,14 @@
 
 -- Hotel Table
 CREATE TABLE Hotel (
-    Hotel_ID INT PRIMARY KEY,
+    Hotel_ID INT AUTO_INCREMENT PRIMARY KEY,
     Hotel_Name VARCHAR(100) NOT NULL,
     Hotel_Address VARCHAR(200) NOT NULL
 );
 
 -- User Account Table
 CREATE TABLE User_Account (
-    User_ID INT PRIMARY KEY,
+    User_ID INT  AUTO_INCREMENT PRIMARY KEY,
     Username VARCHAR(100) UNIQUE NOT NULL,
     Password_Hash VARCHAR(255) NOT NULL,
     Hotel_ID INT,
@@ -20,7 +20,7 @@ CREATE TABLE User_Account (
 
 -- Guest Table
 CREATE TABLE Guest (
-    Guest_ID INT PRIMARY KEY,
+    Guest_ID INT AUTO_INCREMENT PRIMARY KEY,
     User_ID INT UNIQUE,
     Guest_Name VARCHAR(100) NOT NULL,
     Guest_ContactInfo VARCHAR(150),
@@ -29,7 +29,7 @@ CREATE TABLE Guest (
 
 -- Staff Table
 CREATE TABLE Staff (
-    Staff_ID INT PRIMARY KEY,
+    Staff_ID INT AUTO_INCREMENT PRIMARY KEY,
     User_ID INT UNIQUE,
     Staff_Name VARCHAR(100) NOT NULL,
     Staff_Type ENUM('Administrator', 'Receptionist', 'Housekeeper') NOT NULL,
@@ -47,21 +47,21 @@ CREATE TABLE Administrator (
 
 -- Receptionist Table
 CREATE TABLE Receptionist (
-    Staff_ID INT PRIMARY KEY,
+    Staff_ID INT AUTO_INCREMENT PRIMARY KEY,
     Reception_Shift VARCHAR(100),
     FOREIGN KEY (Staff_ID) REFERENCES Staff(Staff_ID) ON DELETE CASCADE
 );
 
 -- Housekeeper Table
 CREATE TABLE Housekeeper (
-    Staff_ID INT PRIMARY KEY,
+    Staff_ID INT AUTO_INCREMENT PRIMARY KEY,
     Shift VARCHAR(100),
     FOREIGN KEY (Staff_ID) REFERENCES Staff(Staff_ID) ON DELETE CASCADE
 );
 
 -- Room Table
 CREATE TABLE Room (
-    Room_ID INT PRIMARY KEY,
+    Room_ID INT AUTO_INCREMENT PRIMARY KEY,
     Room_Type VARCHAR(50),
     Room_Price DECIMAL(10, 2) NOT NULL,
     Room_Status ENUM('Available', 'Occupied', 'Cleaning', 'Maintenance') NOT NULL,
@@ -73,7 +73,7 @@ CREATE TABLE Room (
 
 -- Reservation Table
 CREATE TABLE Reservation (
-    Reservation_ID INT PRIMARY KEY,
+    Reservation_ID INT AUTO_INCREMENT PRIMARY KEY,
     Guest_ID INT,
     Room_ID INT,
     CheckInDate DATE NOT NULL,
@@ -85,7 +85,7 @@ CREATE TABLE Reservation (
 
 -- Payment Table
 CREATE TABLE Payment (
-    Payment_ID INT PRIMARY KEY,
+    Payment_ID INT AUTO_INCREMENT PRIMARY KEY,
     Reservation_ID INT,
     Amount DECIMAL(10, 2) NOT NULL,
     Payment_Date DATE NOT NULL,
@@ -95,7 +95,7 @@ CREATE TABLE Payment (
 
 -- Housekeeping Table
 CREATE TABLE Housekeeping (
-    Task_ID INT PRIMARY KEY,
+    Task_ID INT AUTO_INCREMENT PRIMARY KEY,
     Housekeeper_Staff_ID INT,
     Room_ID INT,
     Schedule DATE NOT NULL,

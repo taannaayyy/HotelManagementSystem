@@ -67,7 +67,7 @@ class GuestMenu extends JFrame {
         try {
             String url = "jdbc:mysql://localhost:3306/hotel_management";
             String user = "root";
-            String password = "password";
+            String password = "Tny_0102032003";
             connection = DriverManager.getConnection(url, user, password);
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Database Connection Failed: " + ex.getMessage(),
@@ -113,7 +113,22 @@ class GuestMenu extends JFrame {
     }
     private void addNewBooking() {
         try {
-            // Fetch available rooms
+            // Step 1: Fetch Guest_ID associated with the current User_ID
+            int guestID = 0; // Initialize guestID
+            PreparedStatement guestStmt = connection.prepareStatement(
+                    "SELECT Guest_ID FROM guest WHERE User_ID = ?");
+            guestStmt.setInt(1, userID);
+            ResultSet guestRS = guestStmt.executeQuery();
+
+            if (guestRS.next()) {
+                guestID = guestRS.getInt("Guest_ID");
+            } else {
+                JOptionPane.showMessageDialog(this, "Guest ID not found. Please ensure your account is valid.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                return; // Exit if no Guest_ID found
+            }
+
+            // Step 2: Fetch available rooms
             PreparedStatement stmt = connection.prepareStatement(
                     "SELECT Room_ID, Room_Type, Room_Price FROM room WHERE Hotel_ID = ? AND Room_Status = 'Available'");
             stmt.setInt(1, hotelID);
@@ -135,7 +150,7 @@ class GuestMenu extends JFrame {
 
             JComboBox<String> roomComboBox = new JComboBox<>(roomModel);
 
-            // Create date choosers for check-in and check-out
+            // Step 3: Create date choosers for check-in and check-out
             JDateChooser checkInChooser = new JDateChooser();
             JDateChooser checkOutChooser = new JDateChooser();
             checkInChooser.setDateFormatString("yyyy-MM-dd");
@@ -154,7 +169,7 @@ class GuestMenu extends JFrame {
             int result = JOptionPane.showConfirmDialog(this, panel, "Book a Room", JOptionPane.OK_CANCEL_OPTION);
 
             if (result == JOptionPane.OK_OPTION) {
-                // Validate check-in and check-out dates
+                // Step 4: Validate check-in and check-out dates
                 Date checkInDate = checkInChooser.getDate();
                 Date checkOutDate = checkOutChooser.getDate();
 
@@ -177,17 +192,17 @@ class GuestMenu extends JFrame {
                 String checkIn = sdf.format(checkInDate);
                 String checkOut = sdf.format(checkOutDate);
 
-                // Add reservation record
+                // Step 5: Add reservation record
                 PreparedStatement bookingStmt = connection.prepareStatement(
                         "INSERT INTO reservation (Room_ID, Guest_ID, CheckInDate, CheckOutDate, Booking_Status) " +
-                                "VALUES (?, ?, ?, ?, 'Booked')");
+                                "VALUES (?, ?, ?, ?, 'Pending')");
                 bookingStmt.setInt(1, roomID);
-                bookingStmt.setInt(2, userID);
+                bookingStmt.setInt(2, guestID); // Use the fetched Guest_ID
                 bookingStmt.setString(3, checkIn);
                 bookingStmt.setString(4, checkOut);
                 bookingStmt.executeUpdate();
 
-                // Update room status to 'Occupied'
+                // Step 6: Update room status to 'Occupied'
                 PreparedStatement updateRoomStmt = connection.prepareStatement(
                         "UPDATE room SET Room_Status = 'Occupied' WHERE Room_ID = ?");
                 updateRoomStmt.setInt(1, roomID);
@@ -201,27 +216,51 @@ class GuestMenu extends JFrame {
     }
 
     private void viewMyBookings() {
-        try (PreparedStatement stmt = connection.prepareStatement(
-                "SELECT r.Reservation_ID, r.Room_ID, r.CheckInDate, r.CheckOutDate, r.Booking_Status, rm.Room_Type " +
-                        "FROM reservation r " +
-                        "JOIN room rm ON r.Room_ID = rm.Room_ID " +
-                        "WHERE r.Guest_ID = ?")) {
-            stmt.setInt(1, userID);
+        try {
+            // Step 1: Fetch Guest_ID for the current User_ID
+            int guestID = 0;
+            PreparedStatement guestStmt = connection.prepareStatement(
+                    "SELECT Guest_ID FROM guest WHERE User_ID = ?");
+            guestStmt.setInt(1, userID);
+            ResultSet guestRS = guestStmt.executeQuery();
+
+            if (guestRS.next()) {
+                guestID = guestRS.getInt("Guest_ID");
+            } else {
+                JOptionPane.showMessageDialog(this, "Guest ID not found. Please ensure your account is valid.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // Step 2: Retrieve all bookings for the Guest_ID
+            PreparedStatement stmt = connection.prepareStatement(
+                    "SELECT r.Reservation_ID, r.Room_ID, rm.Room_Type, r.CheckInDate, r.CheckOutDate, r.Booking_Status " +
+                            "FROM reservation r " +
+                            "JOIN room rm ON r.Room_ID = rm.Room_ID " +
+                            "WHERE r.Guest_ID = ?");
+            stmt.setInt(1, guestID);
             ResultSet rs = stmt.executeQuery();
 
-            StringBuilder result = new StringBuilder("Your Bookings:\n");
+            // Step 3: Format the result for display
+            StringBuilder result = new StringBuilder("Your Bookings:\n\n");
+            boolean hasBookings = false; // Flag to check if the user has bookings
+
             while (rs.next()) {
+                hasBookings = true;
                 result.append("Reservation ID: ").append(rs.getInt("Reservation_ID"))
-                        .append(", Room ID: ").append(rs.getInt("Room_ID"))
-                        .append(", Room Type: ").append(rs.getString("Room_Type"))
-                        .append(", Check-in: ").append(rs.getString("CheckInDate"))
-                        .append(", Check-out: ").append(rs.getString("CheckOutDate"))
-                        .append(", Status: ").append(rs.getString("Booking_Status")).append("\n");
+                        .append("\nRoom ID: ").append(rs.getInt("Room_ID"))
+                        .append("\nRoom Type: ").append(rs.getString("Room_Type"))
+                        .append("\nCheck-in Date: ").append(rs.getString("CheckInDate"))
+                        .append("\nCheck-out Date: ").append(rs.getString("CheckOutDate"))
+                        .append("\nBooking Status: ").append(rs.getString("Booking_Status"))
+                        .append("\n-------------------------------------\n");
             }
-            if (result.length() == "Your Bookings:\n".length()) {
-                JOptionPane.showMessageDialog(this, "You have no bookings.");
+
+            // Step 4: Display results
+            if (hasBookings) {
+                JOptionPane.showMessageDialog(this, result.toString(), "My Bookings", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                JOptionPane.showMessageDialog(this, result.toString());
+                JOptionPane.showMessageDialog(this, "You have no bookings at the moment.", "No Bookings", JOptionPane.INFORMATION_MESSAGE);
             }
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Error fetching bookings: " + ex.getMessage(),
@@ -231,16 +270,31 @@ class GuestMenu extends JFrame {
 
     private void cancelBooking() {
         try {
-            // Fetch guest's bookings with status 'Booked'
+            // Step 1: Fetch Guest_ID for the current User_ID
+            int guestID = 0;
+            PreparedStatement guestStmt = connection.prepareStatement(
+                    "SELECT Guest_ID FROM guest WHERE User_ID = ?");
+            guestStmt.setInt(1, userID);
+            ResultSet guestRS = guestStmt.executeQuery();
+
+            if (guestRS.next()) {
+                guestID = guestRS.getInt("Guest_ID");
+            } else {
+                JOptionPane.showMessageDialog(this, "Guest ID not found. Please ensure your account is valid.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // Step 2: Fetch active bookings (status = 'Pending' or 'Confirmed') for the guest
             PreparedStatement stmt = connection.prepareStatement(
                     "SELECT r.Reservation_ID, r.Room_ID, r.CheckInDate, r.CheckOutDate, rm.Room_Type " +
                             "FROM reservation r " +
                             "JOIN room rm ON r.Room_ID = rm.Room_ID " +
-                            "WHERE r.Guest_ID = ? AND r.Booking_Status = 'Booked'");
-            stmt.setInt(1, userID);
+                            "WHERE r.Guest_ID = ? AND r.Booking_Status IN ('Pending', 'Confirmed')");
+            stmt.setInt(1, guestID);
             ResultSet rs = stmt.executeQuery();
 
-            // Populate bookings into a combo box
+            // Step 3: Populate bookings into a combo box
             DefaultComboBoxModel<String> bookingModel = new DefaultComboBoxModel<>();
             while (rs.next()) {
                 int reservationID = rs.getInt("Reservation_ID");
@@ -248,6 +302,7 @@ class GuestMenu extends JFrame {
                 String roomType = rs.getString("Room_Type");
                 String checkIn = rs.getString("CheckInDate");
                 String checkOut = rs.getString("CheckOutDate");
+
                 bookingModel.addElement("Reservation ID: " + reservationID +
                         " | Room ID: " + roomID +
                         " | Type: " + roomType +
@@ -256,35 +311,37 @@ class GuestMenu extends JFrame {
             }
 
             if (bookingModel.getSize() == 0) {
-                JOptionPane.showMessageDialog(this, "You have no active bookings to cancel.", "No Bookings", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "You have no active bookings to cancel.",
+                        "No Active Bookings", JOptionPane.INFORMATION_MESSAGE);
                 return;
             }
 
             JComboBox<String> bookingComboBox = new JComboBox<>(bookingModel);
 
-            // Show combo box in a dialog
-            int result = JOptionPane.showConfirmDialog(this, bookingComboBox, "Select Booking to Cancel", JOptionPane.OK_CANCEL_OPTION);
+            // Step 4: Show combo box for booking selection
+            int result = JOptionPane.showConfirmDialog(this, bookingComboBox,
+                    "Select Booking to Cancel", JOptionPane.OK_CANCEL_OPTION);
 
             if (result == JOptionPane.OK_OPTION) {
-                // Extract Reservation ID from the selected item
+                // Extract Reservation ID and Room ID from the selected booking
                 String selectedBooking = (String) bookingComboBox.getSelectedItem();
                 assert selectedBooking != null;
                 int reservationID = Integer.parseInt(selectedBooking.split("\\|")[0].split(":")[1].trim());
                 int roomID = Integer.parseInt(selectedBooking.split("\\|")[1].split(":")[1].trim());
 
-                // Update reservation status to 'Cancelled'
+                // Step 5: Update reservation status to 'Cancelled'
                 PreparedStatement cancelStmt = connection.prepareStatement(
                         "UPDATE reservation SET Booking_Status = 'Cancelled' WHERE Reservation_ID = ?");
                 cancelStmt.setInt(1, reservationID);
                 cancelStmt.executeUpdate();
 
-                // Update room status to 'Available'
+                // Step 6: Update room status back to 'Available'
                 PreparedStatement updateRoomStmt = connection.prepareStatement(
                         "UPDATE room SET Room_Status = 'Available' WHERE Room_ID = ?");
                 updateRoomStmt.setInt(1, roomID);
                 updateRoomStmt.executeUpdate();
 
-                JOptionPane.showMessageDialog(this, "Booking cancelled successfully!");
+                JOptionPane.showMessageDialog(this, "Booking canceled successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
             }
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

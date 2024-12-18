@@ -102,7 +102,7 @@ class AdminMenu extends JFrame {
     private void showAddRoomForm() {
         JComboBox<String> roomTypeBox = new JComboBox<>(new String[]{"Single", "Double", "Suite"});
         JTextField roomPriceField = new JTextField();
-        JComboBox<String> roomStatusBox = new JComboBox<>(new String[]{"Available", "Cleaning"});
+        JComboBox<String> roomStatusBox = new JComboBox<>(new String[]{"Available", "Occupied", "Cleaning", "Maintenance"});
 
         JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
         panel.add(new JLabel("Room Type:"));
@@ -186,7 +186,7 @@ class AdminMenu extends JFrame {
             JComboBox<String> roomComboBox = new JComboBox<>(roomModel);
 
             // Dropdown for selecting the new status
-            JComboBox<String> statusComboBox = new JComboBox<>(new String[]{"Available", "Cleaning"});
+            JComboBox<String> statusComboBox = new JComboBox<>(new String[]{"Available", "Occupied", "Cleaning", "Maintenance"});
 
             // Create a panel to display options
             JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
@@ -222,12 +222,11 @@ class AdminMenu extends JFrame {
     }
 
     private void showAddUserForm() {
-        // Input fields
+        // Step 1: Input fields for user account
         JTextField usernameField = new JTextField();
         JPasswordField passwordField = new JPasswordField();
-        JComboBox<String> roleBox = new JComboBox<>(new String[]{"guest", "receptionist", "housekeeping", "admin"});
+        JComboBox<String> roleBox = new JComboBox<>(new String[]{"Guest", "Administrator", "Receptionist", "Housekeeper"});
 
-        // Create form panel
         JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
         panel.add(new JLabel("Username:"));
         panel.add(usernameField);
@@ -236,38 +235,215 @@ class AdminMenu extends JFrame {
         panel.add(new JLabel("Role:"));
         panel.add(roleBox);
 
-        // Show form dialog
         int result = JOptionPane.showConfirmDialog(this, panel, "Add User Account", JOptionPane.OK_CANCEL_OPTION);
 
         if (result == JOptionPane.OK_OPTION) {
-            String username = usernameField.getText().trim();
-            String password = new String(passwordField.getPassword()).trim();
-            String role = (String) roleBox.getSelectedItem();
-
-            // Input validation
-            if (username.isEmpty() || password.isEmpty() || role == null) {
-                JOptionPane.showMessageDialog(this, "All fields are required.", "Input Error", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
             try {
-                // Insert user into the database
-                PreparedStatement stmt = connection.prepareStatement(
-                        "INSERT INTO user_account (Username, Password_Hash, Role, Hotel_ID) VALUES (?, ?, ?, ?)");
-                stmt.setString(1, username);
-                stmt.setString(2, password); // Optionally, hash the password
-                stmt.setString(3, role);
-                stmt.setInt(4, hotelID); // Hotel ID of the current admin
+                String username = usernameField.getText().trim();
+                String password = new String(passwordField.getPassword()).trim();
+                String role = (String) roleBox.getSelectedItem();
 
-                stmt.executeUpdate();
-                JOptionPane.showMessageDialog(this, "User account created successfully!");
+                if (username.isEmpty() || password.isEmpty() || role == null) {
+                    JOptionPane.showMessageDialog(this, "All fields are required.", "Input Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                // Step 2: Insert into user_account
+                String insertUserSQL = "INSERT INTO user_account (Username, Password_Hash, Hotel_ID, Role) VALUES (?, ?, ?, ?)";
+                PreparedStatement userStmt = connection.prepareStatement(insertUserSQL, Statement.RETURN_GENERATED_KEYS);
+                userStmt.setString(1, username);
+                userStmt.setString(2, password); // Optionally hash the password
+                userStmt.setInt(3, hotelID);
+                userStmt.setString(4, role.toLowerCase());
+                userStmt.executeUpdate();
+
+                // Step 3: Get generated User_ID
+                ResultSet generatedKeys = userStmt.getGeneratedKeys();
+                int userID = -1;
+                if (generatedKeys.next()) {
+                    userID = generatedKeys.getInt(1);
+                } else {
+                    throw new SQLException("Creating user account failed, no User_ID generated.");
+                }
+
+                // Step 4: Handle additional details based on role
+                if (role.equalsIgnoreCase("Guest")) {
+                    showAddGuestDetails(userID);
+                } else {
+                    showAddStaffDetails(userID, role); // Redirect to the staff details form
+                }
+
+                JOptionPane.showMessageDialog(this, "User account created successfully!",
+                        "Success", JOptionPane.INFORMATION_MESSAGE);
 
             } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(this, "Error creating user account: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
+    private void showAddStaffDetails(int userID, String role) throws SQLException {
+        JTextField staffNameField = new JTextField();
+        JTextField salaryField = new JTextField();
+
+        JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
+        panel.add(new JLabel("Staff Name:"));
+        panel.add(staffNameField);
+        panel.add(new JLabel("Staff Salary:"));
+        panel.add(salaryField);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Add Staff Details", JOptionPane.OK_CANCEL_OPTION);
+
+        if (result == JOptionPane.OK_OPTION) {
+            String staffName = staffNameField.getText().trim();
+            double salary;
+
+            try {
+                salary = Double.parseDouble(salaryField.getText().trim());
+            } catch (NumberFormatException e) {
+                throw new SQLException("Invalid salary input.");
+            }
+
+            if (staffName.isEmpty() || salary <= 0) {
+                throw new SQLException("Staff details are required.");
+            }
+
+            // Step 1: Insert into staff table
+            String insertStaffSQL = "INSERT INTO staff (User_ID, Staff_Name, Staff_Type, Staff_Salary, Hotel_ID) VALUES (?, ?, ?, ?, ?)";
+            PreparedStatement staffStmt = connection.prepareStatement(insertStaffSQL);
+            staffStmt.setInt(1, userID);
+            staffStmt.setString(2, staffName);
+            staffStmt.setString(3, role);
+            staffStmt.setDouble(4, salary);
+            staffStmt.setInt(5, hotelID);
+            staffStmt.executeUpdate();
+
+            // Step 2: Redirect to role-specific form
+            if (role.equalsIgnoreCase("Administrator")) {
+                showAddAdminDetails(userID);
+            } else if (role.equalsIgnoreCase("Receptionist")) {
+                showAddReceptionistDetails(userID);
+            } else if (role.equalsIgnoreCase("Housekeeper")) {
+                showAddHousekeeperDetails(userID);
+            }
+        }
+    }
+    private void showAddGuestDetails(int userID) throws SQLException {
+        JTextField guestNameField = new JTextField();
+        JTextField contactInfoField = new JTextField();
+
+        JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
+        panel.add(new JLabel("Guest Name:"));
+        panel.add(guestNameField);
+        panel.add(new JLabel("Contact Info:"));
+        panel.add(contactInfoField);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Add Guest Details", JOptionPane.OK_CANCEL_OPTION);
+
+        if (result == JOptionPane.OK_OPTION) {
+            String guestName = guestNameField.getText().trim();
+            String contactInfo = contactInfoField.getText().trim();
+
+            if (guestName.isEmpty() || contactInfo.isEmpty()) {
+                throw new SQLException("Guest details are required.");
+            }
+
+            // Insert into guest table
+            String insertGuestSQL = "INSERT INTO guest (User_ID, Guest_Name, Guest_ContactInfo) VALUES (?, ?, ?)";
+            PreparedStatement guestStmt = connection.prepareStatement(insertGuestSQL);
+            guestStmt.setInt(1, userID);
+            guestStmt.setString(2, guestName);
+            guestStmt.setString(3, contactInfo);
+            guestStmt.executeUpdate();
+        }
+    }
+
+    private void showAddAdminDetails(int userID) throws SQLException {
+        // Step 1: Fetch the Staff_ID associated with the User_ID
+        int staffID = fetchStaffID(userID);
+
+        // Step 2: Insert into Administrator table
+        String insertAdminSQL = "INSERT INTO Administrator (Staff_ID) VALUES (?)";
+        PreparedStatement adminStmt = connection.prepareStatement(insertAdminSQL);
+        adminStmt.setInt(1, staffID);
+        adminStmt.executeUpdate();
+
+        JOptionPane.showMessageDialog(this, "Administrator added successfully with Staff ID: " + staffID,
+                "Success", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void showAddReceptionistDetails(int userID) throws SQLException {
+        // Step 1: Fetch the Staff_ID associated with the User_ID
+        int staffID = fetchStaffID(userID);
+
+        // Step 2: Collect Receptionist-specific details
+        JTextField shiftField = new JTextField();
+
+        JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
+        panel.add(new JLabel("Shift:"));
+        panel.add(shiftField);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Add Receptionist Details", JOptionPane.OK_CANCEL_OPTION);
+
+        if (result == JOptionPane.OK_OPTION) {
+            String shift = shiftField.getText().trim();
+
+            if (shift.isEmpty()) {
+                throw new SQLException("Receptionist shift details are required.");
+            }
+
+            // Step 3: Insert into Receptionist table
+            String insertReceptionistSQL = "INSERT INTO Receptionist (Staff_ID, Reception_Shift) VALUES (?, ?)";
+            PreparedStatement receptionistStmt = connection.prepareStatement(insertReceptionistSQL);
+            receptionistStmt.setInt(1, staffID);
+            receptionistStmt.setString(2, shift);
+            receptionistStmt.executeUpdate();
+
+            JOptionPane.showMessageDialog(this, "Receptionist added successfully with Staff ID: " + staffID,
+                    "Success", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    private void showAddHousekeeperDetails(int userID) throws SQLException {
+        JTextField shiftField = new JTextField();
+
+        JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
+        panel.add(new JLabel("Shift:"));
+        panel.add(shiftField);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Add Housekeeper Details", JOptionPane.OK_CANCEL_OPTION);
+
+        if (result == JOptionPane.OK_OPTION) {
+            String shift = shiftField.getText().trim();
+
+            if (shift.isEmpty()) {
+                throw new SQLException("Housekeeper shift details are required.");
+            }
+
+            // Step 1: Fetch the Staff_ID associated with the User_ID
+            int staffID = fetchStaffID(userID);
+
+            // Step 2: Insert into housekeeper table
+            String insertHousekeeperSQL = "INSERT INTO housekeeper (Staff_ID, Shift) VALUES (?, ?)";
+            PreparedStatement housekeeperStmt = connection.prepareStatement(insertHousekeeperSQL);
+            housekeeperStmt.setInt(1, staffID);
+            housekeeperStmt.setString(2, shift);
+            housekeeperStmt.executeUpdate();
+        }
+    }
+
+    private int fetchStaffID(int userID) throws SQLException {
+        String fetchStaffIDSQL = "SELECT Staff_ID FROM staff WHERE User_ID = ?";
+        PreparedStatement stmt = connection.prepareStatement(fetchStaffIDSQL);
+        stmt.setInt(1, userID);
+        ResultSet rs = stmt.executeQuery();
+
+        if (rs.next()) {
+            return rs.getInt("Staff_ID");
+        } else {
+            throw new SQLException("Staff ID not found for the given User ID.");
+        }
+    }
     private void viewUserAccounts() {
         try {
             // Fetch user accounts for the current hotel
@@ -320,7 +496,7 @@ class AdminMenu extends JFrame {
                     "SELECT SUM(rm.Room_Price) AS Total_Revenue " +
                             "FROM reservation r " +
                             "JOIN room rm ON r.Room_ID = rm.Room_ID " +
-                            "WHERE rm.Hotel_ID = ? AND r.Booking_Status = 'Completed'");
+                            "WHERE rm.Hotel_ID = ? AND r.Booking_Status = 'Confirmed'");
             stmt.setInt(1, hotelID);
 
             ResultSet rs = stmt.executeQuery();
@@ -398,7 +574,62 @@ class AdminMenu extends JFrame {
     }
 
     private void viewHousekeepingRecords() {
-        // Implementation: Show rooms currently under "Cleaning" status.
+        try {
+            // Query to fetch all housekeeping tasks
+            String query = """
+            SELECT Task_ID, Housekeeper_Staff_ID, Room_ID, Schedule, Task_Status
+            FROM Housekeeping
+        """;
+
+            PreparedStatement stmt = connection.prepareStatement(query);
+            ResultSet rs = stmt.executeQuery();
+
+            // Define table column names
+            String[] columnNames = {"Task ID", "Housekeeper Staff ID", "Room ID", "Schedule", "Task Status"};
+
+            // Build data for the table
+            java.util.List<Object[]> dataList = new java.util.ArrayList<>();
+            while (rs.next()) {
+                int taskID = rs.getInt("Task_ID");
+                int housekeeperStaffID = rs.getInt("Housekeeper_Staff_ID");
+                int roomID = rs.getInt("Room_ID");
+                Date schedule = rs.getDate("Schedule");
+                String taskStatus = rs.getString("Task_Status");
+
+                dataList.add(new Object[]{
+                        taskID,
+                        housekeeperStaffID != 0 ? housekeeperStaffID : "N/A", // Handle NULL Housekeeper_Staff_ID
+                        roomID,
+                        schedule != null ? schedule.toString() : "N/A",
+                        taskStatus
+                });
+            }
+
+            // Handle no records found
+            if (dataList.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "No housekeeping records found.",
+                        "No Data", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
+            // Convert list to array for JTable
+            Object[][] data = new Object[dataList.size()][columnNames.length];
+            for (int i = 0; i < dataList.size(); i++) {
+                data[i] = dataList.get(i);
+            }
+
+            // Create JTable and display it in a scrollable pane
+            JTable table = new JTable(data, columnNames);
+            table.setEnabled(false); // Disable editing
+            JScrollPane scrollPane = new JScrollPane(table);
+
+            // Show the table in a dialog
+            JOptionPane.showMessageDialog(this, scrollPane, "Housekeeping Records", JOptionPane.PLAIN_MESSAGE);
+
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Error fetching housekeeping records: " + ex.getMessage(),
+                    "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void viewMostBookedRoomTypes() {
@@ -408,7 +639,7 @@ class AdminMenu extends JFrame {
                     "SELECT rm.Room_Type, COUNT(r.Reservation_ID) AS Booking_Count " +
                             "FROM reservation r " +
                             "JOIN room rm ON r.Room_ID = rm.Room_ID " +
-                            "WHERE rm.Hotel_ID = ? AND r.Booking_Status = 'Booked' " +
+                            "WHERE rm.Hotel_ID = ? AND r.Booking_Status = 'Confirmed' " +
                             "GROUP BY rm.Room_Type " +
                             "ORDER BY Booking_Count DESC");
             stmt.setInt(1, hotelID);
