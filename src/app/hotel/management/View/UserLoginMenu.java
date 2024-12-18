@@ -87,7 +87,7 @@ public class UserLoginMenu extends JFrame {
                         new ReceptionistMenu(hotelName);
                         break;
                     case "housekeeper":
-                        new HousekeepingMenu(hotelName);
+                        new HousekeepingMenu(hotelName, userID);
                         break;
                     default:
                         JOptionPane.showMessageDialog(UserLoginMenu.this, "Invalid role!", "Error", JOptionPane.ERROR_MESSAGE);
